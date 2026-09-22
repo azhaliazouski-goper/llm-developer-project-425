@@ -1,0 +1,36 @@
+# Витрина инструментов для агента: что модель знает про наши три «кнопки».
+#
+# input_json_schema — ЭТО ТО, ЧТО ВИДИТ МОДЕЛЬ: имена аргументов, их типы и какие
+# обязательны. Поле должно быть СТРОКОЙ с JSON внутри, а не YAML-объектом.
+# Все три инструмента указывают на одну и ту же функцию ydb-tickets — она сама
+# понимает по набору ключей, что от неё хотят (диспетчер в index.php).
+
+- name: create-ticket
+  description: >-
+    Завести новую заявку в службу поддержки. Вызывай, когда пользователь сообщает
+    о проблеме, которую нельзя решить ответом из базы знаний. Возвращает номер заявки.
+  input_json_schema: '{"type":"object","properties":{"user_id":{"type":"string","description":"Идентификатор пользователя (chat id в Telegram)"},"text":{"type":"string","description":"Текст обращения пользователя"},"category":{"type":"string","enum":["bug","docs","feature","access","other"],"description":"Категория заявки"}},"required":["user_id","text"]}'
+  action:
+    function_call:
+      function_id: d4ei2p8s85k94p2g8dcs
+      tag: $latest
+
+- name: list-my-tickets
+  description: >-
+    Показать заявки пользователя, свежие сверху. Вызывай, когда пользователь
+    спрашивает про свои прошлые обращения, их статус или номер.
+  input_json_schema: '{"type":"object","properties":{"user_id":{"type":"string","description":"Идентификатор пользователя (chat id в Telegram)"},"limit":{"type":"integer","description":"Сколько заявок вернуть, по умолчанию 20"}},"required":["user_id"]}'
+  action:
+    function_call:
+      function_id: d4ei2p8s85k94p2g8dcs
+      tag: $latest
+
+- name: append-message
+  description: >-
+    Дописать реплику в историю существующей заявки. Вызывай после того, как ответил
+    пользователю по уже заведённой заявке, чтобы переписка сохранилась.
+  input_json_schema: '{"type":"object","properties":{"ticket_id":{"type":"string","description":"Номер заявки, полученный от create-ticket"},"text":{"type":"string","description":"Текст реплики"},"role":{"type":"string","enum":["user","agent"],"description":"Кто написал реплику"},"model":{"type":"string"},"tokens_in":{"type":"integer"},"tokens_out":{"type":"integer"},"latency_ms":{"type":"integer"}},"required":["ticket_id","text"]}'
+  action:
+    function_call:
+      function_id: d4ei2p8s85k94p2g8dcs
+      tag: $latest

@@ -1,0 +1,25 @@
+{
+    "name": "hexlet/ydb-tickets",
+    "description": "MCP-инструмент службы поддержки: заявки и история диалога в YDB",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "ext-grpc": "*",
+        "ext-bcmath": "*",
+        "ext-json": "*",
+        "ydb-platform/ydb-php-sdk": "^1.16"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "platform": {
+            "php": "8.2.11",
+            "ext-grpc": "1.57.0",
+            "ext-bcmath": "8.2.11"
+        },
+        "policy": {
+            "advisories": {
+                "ignore-id": ["PKSA-tcfz-w4fm-hhk9"]
+            }
+        }
+    }
+}

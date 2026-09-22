@@ -36,6 +36,37 @@ Timer (раз в минуту) ──► CF telegram-poller ──► getUpdates
                                             «забывает» подтверждённое)
 ```
 
+## База данных YDB (шаг 5)
+
+Serverless-база `help-desk-db`, две таблицы (схема — `src/ydb_tickets/schema.sql`):
+
+| Таблица | Что хранит | Ключ | Индексы |
+|---|---|---|---|
+| `tickets` | заявки: `user_id` (chat id), `category`, `status` (`open` → `answered` → `escalated`), `text` после PII-маскирования, `created_at`, `updated_at` | `id` | `tickets_by_user` по `user_id` — «мои заявки» |
+| `messages` | история реплик по заявке: `role` (`user`/`agent`), `text`, `model`, `tokens_in/out`, `latency_ms`, `created_at` | `(ticket_id, id)` | — |
+
+Таблицы создаются официальной утилитой **YDB CLI** (`ydb`) — один бинарник, без кода и
+зависимостей. Ставится в `~/ydb/bin` без прав администратора:
+
+```bash
+curl -sSL https://install.ydb.tech/cli | bash -s -- -n     # -n: не трогать ~/.bashrc
+export PATH="$HOME/ydb/bin:$PATH"
+
+# профиль с адресом и путём базы (значения — из .env), чтобы не повторять их в каждой команде
+ydb config profile create hexlet --endpoint "$YDB_ENDPOINT" --database "$YDB_DATABASE"
+
+# токен — временный пропуск на ~12 часов; CLI читает его из IAM_TOKEN
+export IAM_TOKEN=$(yc iam create-token)
+
+# создать таблицы и проверить
+ydb -p hexlet sql -f src/ydb_tickets/schema.sql
+ydb -p hexlet scheme ls -l
+ydb -p hexlet scheme describe tickets
+```
+
+`scheme describe` должен показать 7 колонок и индекс `tickets_by_user` у `tickets`,
+9 колонок и составной ключ `(ticket_id, id)` у `messages`.
+
 ## Секреты (Lockbox)
 
 Секреты **не хранятся в коде и в git**. Функции получают их при деплое по имени секрета
@@ -71,6 +102,7 @@ IAM-токену из metadata-сервиса (вручную не обновл�
 - `YDB_ENDPOINT`, `YDB_DATABASE` — подключение к базе (для локальных скриптов);
 - `*_SECRET_ID` — ID секретов в Lockbox (для справки);
 - `AGENT_ID` — id агента `help-desk` в AI Studio;
+- `MCP_GATEWAY_URL` — SSE-адрес шлюза `ydb-tickets-mcp`;
 - `BOT_USERNAME` — username бота;
 - `TELEGRAM_API_BASE` — адрес Bot API для функции (у нас — прокси, см. ниже);
 - `OPERATOR_CHAT_ID` — chat id оператора, туда уходит дайджест эскалации (шаг 6).
@@ -86,7 +118,7 @@ yc serverless function version create \
   --execution-timeout 60s \
   --source-path src/telegram_poller.php \
   --service-account-id <SA_ID> \
-  --environment YC_FOLDER_ID=<folder-id>,TELEGRAM_API_BASE=https://api.gpt-chat.by/tg \
+  --environment YC_FOLDER_ID=<folder-id>,MCP_GATEWAY_URL=https://<mcp-gateway-host>/sse,TELEGRAM_API_BASE=https://api.gpt-chat.by/tg \
   --secret environment-variable=TELEGRAM_BOT_TOKEN,name=telegram-bot-token,key=token \
   --secret environment-variable=TELEGRAM_PROXY_KEY,name=tg-proxy-key,key=key
 
